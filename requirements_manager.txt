@@ -1,0 +1,10 @@
+yt-dlp
+syncedlyrics
+ytmusicapi
+openai-whisper
+pydub
+pywebview
+torch
+torchaudio
+transformers
+demucs
