@@ -60,7 +60,8 @@
     // Default state (v1)
     renderStandby();
 
-    const DEV_PREVIEW = true;
+    const DEV_PREVIEW = false;
+    /*
     if (DEV_PREVIEW) {
         renderPlaying({
         title: "Evidências",
@@ -73,6 +74,7 @@
         ],
         });
     }
+    */
 
     // Expose minimal API for future polling integration (v1)
     window.KaraokeSinger = {
