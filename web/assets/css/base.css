@@ -1,6 +1,6 @@
 /* web/assets/css/base.css */
 :root{
-  /* ========= TOKENS (leve, consistente) ========= */
+  /* ========= TOKENS (performance-first) ========= */
   /* Cores (grafite + ambar) */
   --bg: #0b0f14;                 /* background */
   --surface: #121826;            /* surface/cards */
@@ -27,26 +27,35 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  /* Radius & shadow */
+  /* Radius */
   --radius: 16px;
   --radius-sm: 10px;
-  --shadow: 0 18px 60px rgba(0,0,0,.45);
+
+  /* Shadows (LEVE por padrão) */
+  --shadow: 0 8px 20px rgba(0,0,0,.30);
+  /* Alternativa ultra leve (se precisar):  --shadow: none; */
 }
 
 /* ========= RESETS MINIMOS ========= */
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
+
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   color: var(--text);
-  background: var(--bg); /* default leve */
+  background: var(--bg); /* default leve (sem gradients) */
 }
 
 a{ color: inherit; text-decoration: none; }
 button, input, textarea{ font: inherit; }
 
-/* Opcional: “glow” pesado só se quiser (não default) */
+/* Reduz custo em máquinas fracas / acessibilidade */
+@media (prefers-reduced-motion: reduce){
+  *{ transition: none !important; animation: none !important; }
+}
+
+/* Opcional: “glow” MAIS PESADO só se quiser (não default) */
 .bg-ambient{
   background:
     radial-gradient(1200px 800px at 50% 15%, rgba(245,178,58,.10), transparent 55%),
@@ -71,18 +80,26 @@ button, input, textarea{ font: inherit; }
   justify-content: space-between;
   align-items:center;
   gap: var(--space-4);
-  padding: var(--space-4) var(--space-4);
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--panel);
   box-shadow: var(--shadow);
 }
 
-.brand{ font-weight: 700; letter-spacing: .2px; display:flex; align-items:center; gap: 10px; }
+.brand{
+  font-weight: 700;
+  letter-spacing: .2px;
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+
 .brand .dot{
-  width: 10px; height: 10px; border-radius: 999px;
+  width: 10px; height: 10px;
+  border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(245,178,58,.18);
+  /* leve: sem glow extra por padrão */
 }
 
 .panel{
@@ -115,10 +132,13 @@ button, input, textarea{ font: inherit; }
   color: var(--text);
   cursor: pointer;
   user-select: none;
-  transition: transform .08s ease, background .15s ease, border-color .15s ease;
+  /* transições leves (ok); serão desativadas em prefers-reduced-motion */
+  transition: transform .08s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
 }
+
 .btn:hover{ background: rgba(255,255,255,.04); }
 .btn:active{ transform: translateY(1px); }
+
 .btn:disabled{
   opacity: .55;
   cursor: not-allowed;
@@ -130,7 +150,11 @@ button, input, textarea{ font: inherit; }
   color: #0b0f14;
   font-weight: 800;
 }
-.btn-accent:hover{ filter: brightness(1.02); }
+
+.btn-accent:hover{
+  /* leve (sem filter): só pequena variação de opacidade */
+  opacity: .96;
+}
 
 .input, textarea, input[type="text"]{
   background: rgba(255,255,255,.03);
@@ -140,6 +164,7 @@ button, input, textarea{ font: inherit; }
   padding: 10px 12px;
   outline: none;
 }
+
 .input:focus, textarea:focus, input[type="text"]:focus{
   border-color: rgba(245,178,58,.45);
 }
@@ -161,6 +186,37 @@ button, input, textarea{ font: inherit; }
   border: 1px solid var(--border);
   background: rgba(255,255,255,.02);
 }
+
 .badge.ok{ border-color: rgba(61,220,151,.35); }
 .badge.err{ border-color: rgba(255,93,93,.35); }
 .badge.warn{ border-color: rgba(245,178,58,.35); }
+
+/* ============================================================
+   MODO MAIS BONITO (descomente se o Celeron aguentar bem)
+   - gradients no fundo
+   - sombra mais forte
+   - glow no dot
+   ============================================================ */
+
+/*
+:root{
+  --shadow: 0 18px 60px rgba(0,0,0,.45);
+}
+
+body{
+  background:
+    radial-gradient(1200px 800px at 50% 15%, rgba(245,178,58,.10), transparent 55%),
+    radial-gradient(900px 700px at 15% 70%, rgba(255,255,255,.05), transparent 60%),
+    var(--bg);
+}
+
+.brand .dot{
+  box-shadow: 0 0 0 3px rgba(245,178,58,.18);
+}
+
+.btn-accent:hover{
+  opacity: 1;
+}
+*/
+
+
