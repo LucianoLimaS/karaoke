@@ -310,11 +310,11 @@ class Scorer:
             # --- Lógica de Pontuação ---
             
             # Definir limiar baseado na Dificuldade
-            threshold = 10.0 # Normal
+            threshold = 7.0 # Normal (Reduzido de 10.0)
             if self.difficulty == "Fácil":
-                threshold = 5.0
+                threshold = 1.5 # Fácil (Reduzido de 5.0 - Muito mais sensível)
             elif self.difficulty == "Difícil":
-                threshold = 20.0
+                threshold = 15.0 # Difícil (Reduzido de 20.0)
             
             # Analisar se houve "canto" (energia combinada acima do limiar)
             combined_vol = max(self.current_volume_mic1, self.current_volume_mic2 * 0.8) # Mic1 tem prioridade leve

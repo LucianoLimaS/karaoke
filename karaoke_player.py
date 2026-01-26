@@ -136,6 +136,14 @@ class KaraokePlayer:
 
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
         pygame.display.set_caption("Sistema de Karaokê Python")
+        
+        # Maximizar janela no Windows
+        try:
+            hwnd = pygame.display.get_wm_info()['window']
+            ctypes.windll.user32.ShowWindow(hwnd, 3) # SW_MAXIMIZE = 3
+        except Exception:
+            pass
+            
         self.clock = pygame.time.Clock()
 
         self.manager = SongLibrary()
@@ -143,6 +151,11 @@ class KaraokePlayer:
         
         # Fontes do Sistema
         self.init_fonts(1.0) # Inicializa com escala 1.0
+
+        # Background Config
+        self.cfg_bg_mode = "IMAGEM" # Opções: "IMAGEM", "GRADIENTE"
+        self.bg_images = []
+        self.load_bg_images()
 
         self.current_song = None
         self.lyrics = [] # Lista de (timestamp_ms, text)
@@ -186,8 +199,35 @@ class KaraokePlayer:
         self.font_info = pygame.font.Font(None, int(FONT_SIZE_INFO * scale))
         self.font_small = pygame.font.Font(None, int(20 * scale))
 
+    def load_bg_images(self):
+        """Carrega caminhos de imagens da pasta backgrounds."""
+        self.bg_images = []
+        if not os.path.exists("backgrounds"):
+            os.makedirs("backgrounds")
+            
+        valid_ext = ['.jpg', '.jpeg', '.png', '.bmp']
+        for f in os.listdir("backgrounds"):
+            ext = os.path.splitext(f)[1].lower()
+            if ext in valid_ext:
+                self.bg_images.append(os.path.join("backgrounds", f))
+        
+        print(f"Backgrounds carregados: {len(self.bg_images)}")
+
     def generate_new_background(self):
-        """Escolhe novas cores aleatórias usando paletas variadas."""
+        """Escolhe novo fundo (Cor ou Imagem)."""
+        if self.cfg_bg_mode == "IMAGEM" and self.bg_images:
+            # Modo Imagem
+            img_path = random.choice(self.bg_images)
+            try:
+                self.current_bg_image = pygame.image.load(img_path)
+                print(f"Background Imagem: {img_path}")
+            except Exception as e:
+                print(f"Erro ao carregar imagem {img_path}: {e}")
+                self.current_bg_image = None
+        else:
+            self.current_bg_image = None
+            
+        # Sempre gera cores para fallback ou modo Gradiente
         themes = [
             # Ocean (Azul/Ciano)
             lambda: ((random.randint(0,50), random.randint(0,100), random.randint(100,200)),
@@ -211,17 +251,45 @@ class KaraokePlayer:
         
         generator = random.choice(themes)
         self.bg_c1, self.bg_c2 = generator()
+        
         self.render_background()
 
     def render_background(self):
         """Renderiza o fundo usando as cores atuais na resolução atual."""
         w, h = self.screen.get_width(), self.screen.get_height()
-        self.background = pygame.Surface((w, h)).convert()
+        
+        if self.cfg_bg_mode == "IMAGEM" and hasattr(self, 'current_bg_image') and self.current_bg_image:
+             # Scale Image to Cover
+             try:
+                 # Smoothscale é pesado, então fazemos apenas quando necessário (resize/init)
+                 # Calculando aspecto para "Cover"
+                 img_w, img_h = self.current_bg_image.get_size()
+                 scale_w = w / img_w
+                 scale_h = h / img_h
+                 scale = max(scale_w, scale_h)
+                 
+                 new_size = (int(img_w * scale), int(img_h * scale))
+                 scaled_img = pygame.transform.smoothscale(self.current_bg_image, new_size)
+                 
+                 # Centraliza crop
+                 x = (w - new_size[0]) // 2
+                 y = (h - new_size[1]) // 2
+                 
+                 self.background = pygame.Surface((w, h)).convert()
+                 self.background.blit(scaled_img, (x, y))
+             except Exception as e:
+                 print(f"Erro no render imagem: {e}")
+                 # Fallback para gradiente se falhar
+                 self._render_gradient(w, h)
+        else:
+             self._render_gradient(w, h)
         
         # Cria/Atualiza Overlay aqui
         self.overlay = pygame.Surface((w, h), pygame.SRCALPHA)
         self.overlay.fill(COLOR_BG_OVERLAY)
 
+    def _render_gradient(self, w, h):
+        self.background = pygame.Surface((w, h)).convert()
         c1 = getattr(self, 'bg_c1', (0,0,100))
         c2 = getattr(self, 'bg_c2', (0,0,50))
 
@@ -590,51 +658,84 @@ class KaraokePlayer:
                     self.state = "MENU" # Voltar
                 pass
         
-        # Eventos de Clique para CONFIG
         if event.type == pygame.MOUSEBUTTONDOWN and self.state == "CONFIG":
             x, y = event.pos
+            W, H = self.screen.get_width(), self.screen.get_height()
+            ui_scale = H / 768.0
             
-            # Botão Atualizar Biblioteca (700, 50, 200, 50) - Exemplo
-            if 700 <= x <= 900 and 50 <= y <= 100:
+            # Recalcula posições base (mesma lógica do draw)
+            CX = W // 2
+            start_y = int(150 * ui_scale)
+            gap_y = int(50 * ui_scale)
+            col_ctrl_x = CX + int(50 * ui_scale)
+            chk_size = int(20 * ui_scale)
+            
+            # Botão Atualizar Biblioteca (700, 50, 200, 50) -> Scaled
+            btn_w, btn_h = int(200 * ui_scale), int(50 * ui_scale)
+            btn_y = int(50 * ui_scale)
+            btn_x = CX + int(200 * ui_scale)
+            
+            if btn_x <= x <= btn_x + btn_w and btn_y <= y <= btn_y + btn_h:
                 print("Atualizando biblioteca...")
                 res = self.manager.sync_availability()
                 print(res)
+                # Recarrega imagens também
+                self.load_bg_images()
 
             # Botão Monitoramento (Toggle)
-            if 300 <= x <= 320 and 150 <= y <= 170:
+            y_mon = start_y
+            if col_ctrl_x <= x <= col_ctrl_x + chk_size and y_mon <= y <= y_mon + chk_size:
                 self.cfg_monitoring = not self.cfg_monitoring
             
             # Botão Indicador Ritmo (Toggle)
-            if 300 <= x <= 320 and 190 <= y <= 210:
+            y_rhy = start_y + gap_y
+            if col_ctrl_x <= x <= col_ctrl_x + chk_size and y_rhy <= y <= y_rhy + chk_size:
                 self.show_rhythm_indicator = not self.show_rhythm_indicator
                 
             # Sliders (Lógica aproximada: clique na barra altera valor)
-            # Volume Mic 1 (Barra x: 400-700, y: 250)
-            if 400 <= x <= 700 and 240 <= y <= 260:
-                self.cfg_volume_mic1 = (x - 400) / 300 * 2.0 # Max 2.0
+            slider_w = int(300 * ui_scale)
+            padding_y = int(10 * ui_scale) # Margem de clique vertical
             
-            # Volume Mic 2 (Barra x: 400-700, y: 300)
-            if 400 <= x <= 700 and 290 <= y <= 310:
-                self.cfg_volume_mic2 = (x - 400) / 300 * 2.0
+            # Volume Mic 1
+            y_m1 = start_y + 2 * gap_y
+            if col_ctrl_x <= x <= col_ctrl_x + slider_w and y_m1 <= y <= y_m1 + 20: # +20 tolerance
+                self.cfg_volume_mic1 = (x - col_ctrl_x) / slider_w * 2.0 # Max 2.0
+            
+            # Volume Mic 2
+            y_m2 = start_y + 3 * gap_y
+            if col_ctrl_x <= x <= col_ctrl_x + slider_w and y_m2 <= y <= y_m2 + 20:
+                self.cfg_volume_mic2 = (x - col_ctrl_x) / slider_w * 2.0
                 
-            # Volume Musica (Barra x: 400-700, y: 350)
-            if 400 <= x <= 700 and 340 <= y <= 360:
-                self.cfg_volume_music = (x - 400) / 300
+            # Volume Musica 
+            y_mus = start_y + 4 * gap_y
+            if col_ctrl_x <= x <= col_ctrl_x + slider_w and y_mus <= y <= y_mus + 20:
+                self.cfg_volume_music = (x - col_ctrl_x) / slider_w
                 pygame.mixer.music.set_volume(self.cfg_volume_music)
 
             # Dificuldade (Ciclar)
-            if 400 <= x <= 600 and 400 <= y <= 430:
+            y_dif = start_y + 5 * gap_y
+            btn_h_small = int(30 * ui_scale)
+            if col_ctrl_x <= x <= col_ctrl_x + int(200*ui_scale) and y_dif <= y <= y_dif + btn_h_small:
                 modes = ["Fácil", "Normal", "Difícil"]
                 curr_idx = modes.index(self.cfg_difficulty)
                 self.cfg_difficulty = modes[(curr_idx + 1) % len(modes)]
             
             # Trocar Mic 1 (Ciclar)
-            if 400 <= x <= 700 and 500 <= y <= 530:
+            y_d1 = start_y + 6 * gap_y
+            if col_ctrl_x <= x <= col_ctrl_x + int(300*ui_scale) and y_d1 <= y <= y_d1 + btn_h_small:
                 self._cycle_mic(1)
             
              # Trocar Mic 2 (Ciclar)
-            if 400 <= x <= 700 and 550 <= y <= 580:
+            y_d2 = start_y + 7 * gap_y
+            if col_ctrl_x <= x <= col_ctrl_x + int(300*ui_scale) and y_d2 <= y <= y_d2 + btn_h_small:
                 self._cycle_mic(2)
+                
+            # Toggle Background Mode (Novo)
+            y_bg = start_y + 8 * gap_y
+            if col_ctrl_x <= x <= col_ctrl_x + int(200*ui_scale) and y_bg <= y <= y_bg + btn_h_small:
+                self.cfg_bg_mode = "GRADIENTE" if self.cfg_bg_mode == "IMAGEM" else "IMAGEM"
+                print(f"Modo Fundo alterado para: {self.cfg_bg_mode}")
+                self.load_random_background()
                 
             self.apply_audio_config()
 
@@ -1081,6 +1182,15 @@ class KaraokePlayer:
         pygame.draw.rect(self.screen, (50,50,50), (col_ctrl_x, y_d2, int(300*ui_scale), btn_h_small))
         n2 = font.render(get_dev_name(self.cfg_mic2_idx), True, COLOR_WHITE)
         self.screen.blit(n2, (col_ctrl_x + int(10*ui_scale), y_d2 + int(5*ui_scale)))
+        
+        # Background Mode
+        lbl_bg = font.render("Modo Fundo:", True, COLOR_WHITE)
+        y_bg = start_y + 8 * gap_y
+        self.screen.blit(lbl_bg, (col_lbl_x, y_bg))
+        
+        pygame.draw.rect(self.screen, (100,0,100), (col_ctrl_x, y_bg, int(200*ui_scale), btn_h_small))
+        bg_txt = font.render(self.cfg_bg_mode, True, COLOR_WHITE)
+        self.screen.blit(bg_txt, (col_ctrl_x + int(20*ui_scale), y_bg + int(5*ui_scale)))
         
         # VU Meters na Config para teste
         # Mic 1
